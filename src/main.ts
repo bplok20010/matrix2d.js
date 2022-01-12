@@ -47,7 +47,7 @@ export interface Transform {
   y: number;
   scaleX: number;
   scaleY: number;
-  rotation: number;
+  rotation?: number;
   skewX: number;
   skewY: number;
 }
@@ -370,7 +370,6 @@ export class Matrix2D {
     }
     return this;
   }
-
   /**
    * Applies a clockwise rotation transformation to the matrix.
    * @method rotate
@@ -510,7 +509,6 @@ export class Matrix2D {
     pt.y = x * this.b + y * this.d + this.ty;
     return pt as Point;
   }
-
   /**
    * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
    * may not match the transform properties you used to generate the matrix, though they will produce the same visual
@@ -555,7 +553,6 @@ export class Matrix2D {
   copy(matrix: Matrix): Matrix2D {
     return this.setValues(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
   }
-
   /**
    * Returns a clone of the Matrix2D instance.
    * @method clone
@@ -564,7 +561,6 @@ export class Matrix2D {
   clone(): Matrix2D {
     return new Matrix2D(this.a, this.b, this.c, this.d, this.tx, this.ty);
   }
-
   /**
    * Returns a string representation of this object.
    * @method toString
