@@ -510,6 +510,25 @@ export class Matrix2D {
     return pt as Point;
   }
   /**
+   * Transforms a point with origin point according to this matrix.
+   * @method transformPoint
+   * @param {Number} x The x component of the point to transform.
+   * @param {Number} y The y component of the point to transform.
+   * @param {Point} origin the transform base point
+   * @return {Point} This matrix. Useful for chaining method calls.
+   **/
+  transformPointWithOrigin(x: number, y: number, origin: Point): Point {
+    const rx = x - origin.x;
+    const ry = y - origin.y;
+
+    const pt = this.transformPoint(rx, ry);
+
+    return {
+      x: pt.x + origin.x,
+      y: pt.y + origin.y,
+    } as Point;
+  }
+  /**
    * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
    * may not match the transform properties you used to generate the matrix, though they will produce the same visual
    * results.
