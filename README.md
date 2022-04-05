@@ -6,7 +6,11 @@ Matrix2D from [CreateJS](https://github.com/CreateJS/CreateJS)
 
 **扩展 API：**
 
+- `transformPoints(points: Point[], origin: Point): Points[]`
+
 - `transformPointWithOrigin(x: number,y: number, point: {x: number, y: number})` 变换矩阵应用于坐标时支持自定义基点`point`，示例：
+
+> 作用同 `transformPoint(x, y, point?)`
 
 ```ts
 const mtx = new Matrix2D();
@@ -25,6 +29,8 @@ const p = mtx.transformPointWithOrigin(rect.x, rect.y, {
 // 旋转45角度后的新坐标
 console.log(p)
 ```
+
+- `flipX()` `flipY()` `flipOrigin()`
 
 ## Usage
 

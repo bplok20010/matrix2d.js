@@ -47,9 +47,31 @@ export interface Transform {
   y: number;
   scaleX: number;
   scaleY: number;
-  rotation?: number;
-  skewX: number;
-  skewY: number;
+  rotation: number;
+}
+
+function isUndefined(value: any) {
+  return typeof value === "undefined";
+}
+
+interface MatrixValue {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  tx: number; // e
+  ty: number; // f
+}
+
+export function multiply(m1: MatrixValue, m2: MatrixValue) {
+  return {
+    a: m1.a * m2.a + m1.c * m2.b,
+    b: m1.b * m2.a + m1.d * m2.b,
+    c: m1.a * m2.c + m1.c * m2.d,
+    d: m1.b * m2.c + m1.d * m2.d,
+    tx: m1.a * m2.tx + m1.c * m2.ty + m1.tx,
+    ty: m1.b * m2.tx + m1.d * m2.ty + m1.ty,
+  };
 }
 
 /**
@@ -136,12 +158,18 @@ export class Matrix2D {
    * @type Number
    **/
   tx: number = 0;
+  get e() {
+    return this.tx;
+  }
   /**
    * Position (2, 1) in a 3x3 affine transformation matrix.
    * @property ty
    * @type Number
    **/
   ty: number = 0;
+  get f() {
+    return this.ty;
+  }
 
   constructor(a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0) {
     this.setValues(a, b, c, d, tx, ty);
@@ -165,12 +193,12 @@ export class Matrix2D {
     tx: number = 0,
     ty: number = 0
   ): Matrix2D {
-    this.a = a == null ? 1 : a;
-    this.b = b || 0;
-    this.c = c || 0;
-    this.d = d == null ? 1 : d;
-    this.tx = tx || 0;
-    this.ty = ty || 0;
+    this.a = a;
+    this.b = b;
+    this.c = c;
+    this.d = d;
+    this.tx = tx;
+    this.ty = ty;
     return this;
   }
   /**
@@ -198,6 +226,7 @@ export class Matrix2D {
     }
     this.tx = a1 * tx + c1 * ty + this.tx;
     this.ty = b1 * tx + d1 * ty + this.ty;
+
     return this;
   }
   /**
@@ -224,6 +253,7 @@ export class Matrix2D {
     this.d = b * c1 + d * this.d;
     this.tx = a * tx1 + c * this.ty + tx;
     this.ty = b * tx1 + d * this.ty + ty;
+
     return this;
   }
   /**
@@ -376,11 +406,18 @@ export class Matrix2D {
    * @param {Number} angle The angle to rotate by, in degrees. To use a value in radians, multiply it by `180/Math.PI`.
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  rotate(angle: number): Matrix2D {
+  rotate(angle: number): Matrix2D;
+  rotate(angle: number, cx: number, cy: number): Matrix2D;
+  rotate(angle: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
     angle = angle * Matrix2D.DEG_TO_RAD;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+    // or this.append(cos, sin, -sin, cos, 0, 0);
     const a1 = this.a;
     const b1 = this.b;
 
@@ -388,6 +425,10 @@ export class Matrix2D {
     this.b = b1 * cos + this.d * sin;
     this.c = -a1 * sin + this.c * cos;
     this.d = -b1 * sin + this.d * cos;
+
+    if (hasOriginPoint) {
+      this.translate(-cx!, -cy!);
+    }
     return this;
   }
   /**
@@ -400,7 +441,9 @@ export class Matrix2D {
   skew(skewX: number, skewY: number): Matrix2D {
     skewX = skewX * Matrix2D.DEG_TO_RAD;
     skewY = skewY * Matrix2D.DEG_TO_RAD;
-    this.append(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), 0, 0);
+
+    this.append(1, Math.tan(skewY), Math.tan(skewX), 1, 0, 0);
+
     return this;
   }
   /**
@@ -410,13 +453,32 @@ export class Matrix2D {
    * @param {Number} y The amount to scale vertically.
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  scale(x: number, y: number): Matrix2D {
+  scale(x: number): Matrix2D;
+  scale(x: number, y: number): Matrix2D;
+  scale(x: number, y: number, cx: number, cy: number): Matrix2D;
+  scale(x: number, y?: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (isUndefined(y)) {
+      y = x;
+    }
+
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+
+    // or this.append(x, x, y, y, 0, 0);
     this.a *= x;
     this.b *= x;
-    this.c *= y;
-    this.d *= y;
+    this.c *= y!;
+    this.d *= y!;
     //this.tx *= x;
     //this.ty *= y;
+
+    if (hasOriginPoint) {
+      this.translate(-cx!, -cy!);
+    }
+
     return this;
   }
   /**
@@ -426,10 +488,34 @@ export class Matrix2D {
    * @param {Number} y
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  translate(x: number, y: number): Matrix2D {
+  translate(x: number, y = 0): Matrix2D {
     this.tx += this.a * x + this.c * y;
     this.ty += this.b * x + this.d * y;
     return this;
+  }
+  /**
+   * flip the matrix on the x axes.
+   * @method flipX
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  flipX(): Matrix2D {
+    return this.append(1, 0, 0, -1, 0, 0);
+  }
+  /**
+   * flip the matrix on the y axes.
+   * @method flipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  flipY(): Matrix2D {
+    return this.append(-1, 0, 0, 1, 0, 0);
+  }
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method flipOrigin
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  flipOrigin(): Matrix2D {
+    return this.append(-1, 0, 0, -1, 0, 0);
   }
   /**
    * Sets the properties of the matrix to those of an identity matrix (one that applies a null transformation).
@@ -493,23 +579,33 @@ export class Matrix2D {
    * @method transformPoint
    * @param {Number} x The x component of the point to transform.
    * @param {Number} y The y component of the point to transform.
-   * @param {Point | Object} [pt] An object to copy the result into. If omitted a generic object with x/y properties will be returned.
+   * @param {Point} origin the transform base point
    * @return {Point} This matrix. Useful for chaining method calls.
    **/
-  transformPoint(
-    x: number,
-    y: number,
-    pt?: {
-      x?: number;
-      y?: number;
+  transformPoint(x: number, y: number, origin?: Point): Point {
+    const hasOriginPoint = !isUndefined(origin);
+
+    if (hasOriginPoint) {
+      x = x - origin!.x;
+      y = y - origin!.y;
     }
-  ): Point {
-    pt = pt || {};
+
+    const pt = {} as Point;
     pt.x = x * this.a + y * this.c + this.tx;
     pt.y = x * this.b + y * this.d + this.ty;
+
+    if (hasOriginPoint) {
+      pt.x += origin!.x;
+      pt.y += origin!.y;
+    }
+
     return pt as Point;
   }
+  transformPoints(points: Point[], origin?: Point) {
+    return points.map(point => this.transformPoint(point.x, point.y, origin));
+  }
   /**
+   * alias transformPoint
    * Transforms a point with origin point according to this matrix.
    * @method transformPoint
    * @param {Number} x The x component of the point to transform.
@@ -518,50 +614,74 @@ export class Matrix2D {
    * @return {Point} This matrix. Useful for chaining method calls.
    **/
   transformPointWithOrigin(x: number, y: number, origin: Point): Point {
-    const rx = x - origin.x;
-    const ry = y - origin.y;
-
-    const pt = this.transformPoint(rx, ry);
-
-    return {
-      x: pt.x + origin.x,
-      y: pt.y + origin.y,
-    } as Point;
+    return this.transformPoint(x, y, origin);
   }
   /**
    * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
    * may not match the transform properties you used to generate the matrix, though they will produce the same visual
    * results.
    * @method decompose
-   * @param {Object} target The object to apply the transform properties to. If null, then a new object will be returned.
+   * @param  {Boolean} flipX Whether the matrix contains vertical flip, i.e. mirrors on x-axis
+   * @param  {Boolean} flipY Whether the matrix contains horizontal flip, i.e. mirrors on y-axis
    * @return {Object} The target, or a new generic object with the transform properties applied.
    */
-  decompose(target?: Partial<Transform>): Transform {
-    // TODO: it would be nice to be able to solve for whether the matrix can be decomposed into only scale/rotation even when scale is negative
-    if (target == null) {
-      target = {} as Transform;
-    }
-    target.x = this.tx;
-    target.y = this.ty;
-    target.scaleX = Math.sqrt(this.a * this.a + this.b * this.b);
-    target.scaleY = Math.sqrt(this.c * this.c + this.d * this.d);
-
-    const skewX = Math.atan2(-this.c, this.d);
-    const skewY = Math.atan2(this.b, this.a);
-
-    const delta = Math.abs(1 - skewX / skewY);
-    if (delta < 0.00001) {
-      // effectively identical, can use rotation:
-      target.rotation = skewY / Matrix2D.DEG_TO_RAD;
-      if (this.a < 0 && this.d >= 0) {
-        target.rotation += target.rotation <= 0 ? 180 : -180;
+  decompose(flipX = false, flipY = false): Transform {
+    // Remove flip from the matrix first - flip could be incorrectly interpreted as
+    // rotations (e.g. flipX + flipY = rotate by 180 degrees).
+    // Note flipX is a vertical flip, and flipY is a horizontal flip.
+    const mtx = this.clone();
+    if (flipX) {
+      if (flipY) {
+        mtx.scale(-1, -1);
+      } else {
+        mtx.scale(1, -1);
       }
-      target.skewX = target.skewY = 0;
-    } else {
-      target.skewX = skewX / Matrix2D.DEG_TO_RAD;
-      target.skewY = skewY / Matrix2D.DEG_TO_RAD;
+    } else if (flipY) {
+      mtx.scale(-1, 1);
     }
-    return target as Transform;
+
+    const a = mtx.a;
+    const b = mtx.b;
+    const c = mtx.c;
+    const d = mtx.d;
+    let scaleX = 0,
+      scaleY = 0,
+      rotation = 0;
+
+    if (a !== 0 || c !== 0) {
+      const hypotAc = Math.hypot(a, c);
+      scaleX = hypotAc;
+      scaleY = (a * d - b * c) / hypotAc;
+      const acos = Math.acos(a / hypotAc);
+      rotation = c > 0 ? -acos : acos;
+    } else if (b !== 0 || d !== 0) {
+      const hypotBd = Math.hypot(b, d);
+      scaleX = (a * d - b * c) / hypotBd;
+      scaleY = hypotBd;
+      const acos = Math.acos(b / hypotBd);
+      rotation = Math.PI / 2 + (d > 0 ? -acos : acos);
+    } else {
+      scaleX = 0;
+      scaleY = 0;
+      rotation = 0;
+    }
+
+    // put the flip factors back
+    if (flipY) {
+      scaleX = -scaleX;
+    }
+
+    if (flipX) {
+      scaleY = -scaleY;
+    }
+
+    return {
+      x: mtx.tx,
+      y: mtx.ty,
+      rotation: rotation / Matrix2D.DEG_TO_RAD,
+      scaleX,
+      scaleY,
+    };
   }
   /**
    * Copies all properties from the specified matrix to this matrix.
