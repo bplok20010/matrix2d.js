@@ -446,6 +446,12 @@ export class Matrix2D {
 
     return this;
   }
+  skewX(skewX: number) {
+    return this.skew(skewX, 0);
+  }
+  skewY(skewY: number) {
+    return this.skew(0, skewY);
+  }
   /**
    * Applies a scale transformation to the matrix.
    * @method scale
@@ -481,6 +487,16 @@ export class Matrix2D {
 
     return this;
   }
+  scaleX(x: number): Matrix2D;
+  scaleX(x: number, cx: number, cy: number): Matrix2D;
+  scaleX(x: number, cx?: number, cy?: number) {
+    return this.scale(x, 1, cx!, cy!);
+  }
+  scaleY(y: number): Matrix2D;
+  scaleY(y: number, cx: number, cy: number): Matrix2D;
+  scaleY(y: number, cx?: number, cy?: number) {
+    return this.scale(1, y, cx!, cy!);
+  }
   /**
    * Translates the matrix on the x and y axes.
    * @method translate
@@ -492,6 +508,12 @@ export class Matrix2D {
     this.tx += this.a * x + this.c * y;
     this.ty += this.b * x + this.d * y;
     return this;
+  }
+  translateX(x: number) {
+    return this.translate(x);
+  }
+  translateY(y: number) {
+    return this.translate(0, y);
   }
   /**
    * flip the matrix on the x axes.
