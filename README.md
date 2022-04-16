@@ -32,6 +32,16 @@ console.log(p)
 
 - `flipX()` `flipY()` `flipOrigin()`
 
+- `rotate(deg, cx,cy)`
+
+- `scale(x,y, cx,cy)`
+
+- `scaleX(x) scaleY(y)`
+
+- `skewX(x) skewY(y)`
+
+- `translateX(x) translateY(y)`
+
 ## Usage
 
 `npm install --save matrix2d.js`
