@@ -1,5 +1,6 @@
 /*!
  * Matrix2D from CreateJS
+ * https://github.com/bplok20010/matrix2d.js
  *
  * CreateJS
  * Visit http://createjs.com/ for documentation, updates and examples.
@@ -37,6 +38,8 @@ export interface Matrix {
   ty: number;
 }
 
+export type MatrixArray = [a: number, b: number, c: number, d: number, tx: number, ty: number];
+
 export interface Point {
   x: number;
   y: number;
@@ -54,6 +57,14 @@ function isUndefined(value: any) {
   return typeof value === "undefined";
 }
 
+function isObject(value: any) {
+  return value != null && typeof value === "object";
+}
+
+function isPointObject(value: any): value is Point {
+  return isObject(value) && "x" in value && "y" in value;
+}
+
 interface MatrixValue {
   a: number;
   b: number;
@@ -63,7 +74,10 @@ interface MatrixValue {
   ty: number; // f
 }
 
-export function multiply(m1: MatrixValue, m2: MatrixValue) {
+const matrixRegex =
+  /^matrix\(\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*\)$/i;
+
+export function multiply(m1: MatrixValue, m2: MatrixValue): Matrix {
   return {
     a: m1.a * m2.a + m1.c * m2.b,
     b: m1.b * m2.a + m1.d * m2.b,
@@ -94,7 +108,7 @@ export function multiply(m1: MatrixValue, m2: MatrixValue) {
  * @param {Number} [ty=0] Specifies the ty property for the new matrix.
  * @constructor
  **/
-export class Matrix2D {
+export class Matrix2D implements Matrix {
   /**
    * Multiplier for converting degrees to radians. Used internally by Matrix2D.
    * @property DEG_TO_RAD
@@ -114,11 +128,12 @@ export class Matrix2D {
   static identity: Matrix2D = new Matrix2D();
 
   /**
+   * @deprecated
    * Convert matrix array([a,b,c,d,tx,ty]) to object
    * @param {Number[]} matrix
    * @returns {Matrix} matrix object.
    */
-  static toMatrix(matrix: [number, number, number, number, number, number]): Matrix {
+  static toMatrix(matrix: MatrixArray): Matrix {
     return {
       a: matrix[0],
       b: matrix[1],
@@ -128,6 +143,60 @@ export class Matrix2D {
       ty: matrix[5],
     };
   }
+  /**
+   * @static
+   * @param {Matrix} matrix
+   * @returns {Matrix2D}
+   */
+  static fromMatrix(matrix: Matrix): Matrix2D {
+    return new Matrix2D(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
+  }
+  /**
+   * alias fromMatrix
+   * @static
+   * @returns {Matrix2D}
+   */
+  static fromObject(matrix: Matrix): Matrix2D {
+    return Matrix2D.fromMatrix(matrix);
+  }
+  /**
+   * @static
+   * @returns {Matrix2D}
+   */
+  static fromArray(matrix: MatrixArray): Matrix2D {
+    return new Matrix2D(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+  }
+  /**
+   * Parse a string formatted as matrix(a,b,c,d,tx,ty)
+   * @static
+   * @param {String} string  String with an affine matrix
+   * @returns {Matrix2D}
+   */
+  static fromString(string: string): Matrix2D {
+    const parsed = string.match(matrixRegex);
+    if (parsed === null || parsed.length < 7) throw new Error(`'${string}' is not a matrix`);
+    const matrix = {
+      a: parseFloat(parsed[1]),
+      b: parseFloat(parsed[2]),
+      c: parseFloat(parsed[3]),
+      d: parseFloat(parsed[4]),
+      tx: parseFloat(parsed[5]),
+      ty: parseFloat(parsed[6]),
+    };
+
+    return Matrix2D.fromMatrix(matrix);
+  }
+
+  /**
+   * @static
+   * @param {Matrix} m1
+   * @param {Matrix} m2
+   * @returns {Matrix}
+   */
+  static multiply(m1: Matrix, m2: Matrix): Matrix {
+    return multiply(m1, m2);
+  }
+
   /**
    * Position (0, 0) in a 3x3 affine transformation matrix.
    * @property a
@@ -145,7 +214,7 @@ export class Matrix2D {
    * @property c
    * @type Number
    **/
-  c = 0;
+  c: number = 0;
   /**
    * Position (1, 1) in a 3x3 affine transformation matrix.
    * @property d
@@ -158,6 +227,9 @@ export class Matrix2D {
    * @type Number
    **/
   tx: number = 0;
+  /**
+   * alias tx
+   */
   get e() {
     return this.tx;
   }
@@ -167,10 +239,27 @@ export class Matrix2D {
    * @type Number
    **/
   ty: number = 0;
+
+  /**
+   * alias ty
+   */
   get f() {
     return this.ty;
   }
 
+  /**
+   * [
+   *    a c tx
+   *    b d ty
+   *    0 0  1
+   * ]
+   * @param a
+   * @param b
+   * @param c
+   * @param d
+   * @param tx
+   * @param ty
+   */
   constructor(a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0) {
     this.setValues(a, b, c, d, tx, ty);
   }
@@ -438,20 +527,97 @@ export class Matrix2D {
    * @param {Number} skewY The amount to skew vertically in degrees.
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    */
-  skew(skewX: number, skewY: number): Matrix2D {
+  skew(skewX: number, skewY: number): Matrix2D;
+  skew(skewX: number, skewY: number, cx: number, cy: number): Matrix2D;
+  skew(skewX: number, skewY: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
     skewX = skewX * Matrix2D.DEG_TO_RAD;
     skewY = skewY * Matrix2D.DEG_TO_RAD;
 
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+
     this.append(1, Math.tan(skewY), Math.tan(skewX), 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.translate(-cx!, -cy!);
+    }
 
     return this;
   }
-  skewX(skewX: number) {
-    return this.skew(skewX, 0);
+  /**
+   * Applies a skewX transformation to the matrix.
+   * @method skewX
+   * @param {Number} skewX The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  skewX(skewX: number): Matrix2D;
+  skewX(skewX: number, cx: number, cy: number): Matrix2D;
+  skewX(skewX: number, cx?: number, cy?: number): Matrix2D {
+    return this.skew(skewX, 0, cx!, cy!);
   }
-  skewY(skewY: number) {
-    return this.skew(0, skewY);
+  /**
+   * Applies a skewY transformation to the matrix.
+   * @method skewY
+   * @param {Number} skewY The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  skewY(skewY: number): Matrix2D;
+  skewY(skewY: number, cx: number, cy: number): Matrix2D;
+  skewY(skewY: number, cx?: number, cy?: number) {
+    return this.skew(0, skewY, cx!, cy!);
   }
+
+  /**
+   * Applies a shear transformation to the matrix.
+   * @method shear
+   * @param {Number} shearX Shear on axis x
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  shear(shearX: number, shearY: number): Matrix2D;
+  shear(shearX: number, shearY: number, cx: number, cy: number): Matrix2D;
+  shear(shearX: number, shearY: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+
+    this.append(1, shearY, shearX, 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.translate(-cx!, -cy!);
+    }
+
+    return this;
+  }
+
+  /**
+   * Applies a shearX transformation to the matrix.
+   * @method shearX
+   * @param {Number} shearX Shear on axis x
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  shearX(shearX: number): Matrix2D;
+  shearX(shearX: number, cx: number, cy: number): Matrix2D;
+  shearX(shearX: number, cx?: number, cy?: number): Matrix2D {
+    return this.shear(shearX, 0, cx!, cy!);
+  }
+  /**
+   * Applies a shearY transformation to the matrix.
+   * @method shearY
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  shearY(shearY: number): Matrix2D;
+  shearY(shearY: number, cx: number, cy: number): Matrix2D;
+  shearY(shearY: number, cx?: number, cy?: number): Matrix2D {
+    return this.shear(0, shearY, cx!, cy!);
+  }
+
   /**
    * Applies a scale transformation to the matrix.
    * @method scale
@@ -487,11 +653,23 @@ export class Matrix2D {
 
     return this;
   }
+  /**
+   * Applies a scale x transformation to the matrix.
+   * @method scaleX
+   * @param {Number} x The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
   scaleX(x: number): Matrix2D;
   scaleX(x: number, cx: number, cy: number): Matrix2D;
   scaleX(x: number, cx?: number, cy?: number) {
     return this.scale(x, 1, cx!, cy!);
   }
+  /**
+   * Applies a scale y transformation to the matrix.
+   * @method scaleY
+   * @param {Number} y The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
   scaleY(y: number): Matrix2D;
   scaleY(y: number, cx: number, cy: number): Matrix2D;
   scaleY(y: number, cx?: number, cy?: number) {
@@ -504,7 +682,7 @@ export class Matrix2D {
    * @param {Number} y
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  translate(x: number, y = 0): Matrix2D {
+  translate(x: number, y: number = 0): Matrix2D {
     this.tx += this.a * x + this.c * y;
     this.ty += this.b * x + this.d * y;
     return this;
@@ -515,21 +693,55 @@ export class Matrix2D {
   translateY(y: number) {
     return this.translate(0, y);
   }
+
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method flip
+   * @param {Boolean} flipX
+   * @param {Boolean} flipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  flip(flipX: boolean, flipY: boolean): Matrix2D;
+  flip(flipX: boolean, flipY: boolean, cx: number, cy: number): Matrix2D;
+  flip(flipX: boolean, flipY: boolean, cx?: number, cy?: number): Matrix2D {
+    if (!flipX && !flipY) {
+      return this;
+    }
+
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+
+    this.append(flipY ? -1 : 1, 0, 0, flipX ? -1 : 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.translate(-cx!, -cy!);
+    }
+
+    return this;
+  }
+
   /**
    * flip the matrix on the x axes.
    * @method flipX
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  flipX(): Matrix2D {
-    return this.append(1, 0, 0, -1, 0, 0);
+  flipX(): Matrix2D;
+  flipX(cx: number, cy: number): Matrix2D;
+  flipX(cx?: number, cy?: number): Matrix2D {
+    return this.flip(true, false, cx!, cy!);
   }
   /**
    * flip the matrix on the y axes.
    * @method flipY
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  flipY(): Matrix2D {
-    return this.append(-1, 0, 0, 1, 0, 0);
+  flipY(): Matrix2D;
+  flipY(cx: number, cy: number): Matrix2D;
+  flipY(cx?: number, cy?: number): Matrix2D {
+    return this.flip(false, true, cx!, cy!);
   }
   /**
    * flip the matrix on the y axes and y axes.
@@ -549,6 +761,16 @@ export class Matrix2D {
     this.b = this.c = this.tx = this.ty = 0;
     return this;
   }
+
+  /**
+   * alias identity
+   * @method reset
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  reset(): Matrix2D {
+    return this.identity();
+  }
+
   /**
    * Inverts the matrix, causing it to perform the opposite transformation.
    * @method invert
@@ -586,7 +808,7 @@ export class Matrix2D {
    * @param {Matrix2D} matrix The matrix to compare.
    * @return {Boolean}
    **/
-  equals(matrix: Matrix2D): boolean {
+  equals(matrix: Matrix): boolean {
     return (
       this.tx === matrix.tx &&
       this.ty === matrix.ty &&
@@ -599,22 +821,41 @@ export class Matrix2D {
   /**
    * Transforms a point according to this matrix.
    * @method transformPoint
+   * @param {Point} point
+   */
+  transformPoint(point: Point): Point;
+  /**
+   * Transforms a point according to this matrix.
+   * @method transformPoint
    * @param {Number} x The x component of the point to transform.
    * @param {Number} y The y component of the point to transform.
    * @param {Point} origin the transform base point
-   * @return {Point} This matrix. Useful for chaining method calls.
+   * @return {Point}
    **/
-  transformPoint(x: number, y: number, origin?: Point): Point {
+  transformPoint(x: number, y: number): Point;
+  /**
+   * @deprecated
+   * @param x
+   * @param y
+   * @param origin
+   */
+  transformPoint(x: number, y: number, origin: Point): Point;
+  transformPoint(x: number | Point, y?: number, origin?: Point): Point {
+    if (isPointObject(x)) {
+      y = x.y;
+      x = x.x;
+    }
+
     const hasOriginPoint = !isUndefined(origin);
 
     if (hasOriginPoint) {
       x = x - origin!.x;
-      y = y - origin!.y;
+      y = y! - origin!.y;
     }
 
     const pt = {} as Point;
-    pt.x = x * this.a + y * this.c + this.tx;
-    pt.y = x * this.b + y * this.d + this.ty;
+    pt.x = x * this.a + y! * this.c + this.tx;
+    pt.y = x * this.b + y! * this.d + this.ty;
 
     if (hasOriginPoint) {
       pt.x += origin!.x;
@@ -623,17 +864,24 @@ export class Matrix2D {
 
     return pt as Point;
   }
+  /**
+   * @deprecated
+   * @param points
+   * @param origin
+   * @returns
+   */
   transformPoints(points: Point[], origin?: Point) {
-    return points.map(point => this.transformPoint(point.x, point.y, origin));
+    return points.map((point) => this.transformPoint(point.x, point.y, origin as any));
   }
   /**
    * alias transformPoint
    * Transforms a point with origin point according to this matrix.
+   * @deprecated
    * @method transformPoint
    * @param {Number} x The x component of the point to transform.
    * @param {Number} y The y component of the point to transform.
    * @param {Point} origin the transform base point
-   * @return {Point} This matrix. Useful for chaining method calls.
+   * @return {Point}
    **/
   transformPointWithOrigin(x: number, y: number, origin: Point): Point {
     return this.transformPoint(x, y, origin);
@@ -647,7 +895,7 @@ export class Matrix2D {
    * @param  {Boolean} flipY Whether the matrix contains horizontal flip, i.e. mirrors on y-axis
    * @return {Object} The target, or a new generic object with the transform properties applied.
    */
-  decompose(flipX = false, flipY = false): Transform {
+  decompose(flipX: boolean = false, flipY: boolean = false): Transform {
     // Remove flip from the matrix first - flip could be incorrectly interpreted as
     // rotations (e.g. flipX + flipY = rotate by 180 degrees).
     // Note flipX is a vertical flip, and flipY is a horizontal flip.
@@ -723,11 +971,28 @@ export class Matrix2D {
     return new Matrix2D(this.a, this.b, this.c, this.d, this.tx, this.ty);
   }
   /**
+   * Rounds all elements of the given matrix using the given precision
+   * @method smooth
+   * @param {Number} [precision] A precision to use for Math.round. Defaults to 10000000000 (meaning which rounds to the 10th digit after the comma).
+   * @returns {Matrix2D}  This matrix. Useful for chaining method calls.
+   */
+  smooth(precision: number = 10000000000): Matrix2D {
+    this.a = Math.round(this.a * precision) / precision;
+    this.b = Math.round(this.b * precision) / precision;
+    this.c = Math.round(this.c * precision) / precision;
+    this.d = Math.round(this.d * precision) / precision;
+    this.tx = Math.round(this.tx * precision) / precision;
+    this.ty = Math.round(this.ty * precision) / precision;
+
+    return this;
+  }
+
+  /**
    * Returns a string representation of this object.
-   * @method toString
+   * @method toStringDebug
    * @return {String} a string representation of the instance.
    **/
-  toString(): string {
+  toStringDebug(): string {
     return (
       "[Matrix2D (a=" +
       this.a +
@@ -743,6 +1008,42 @@ export class Matrix2D {
       this.ty +
       ")]"
     );
+  }
+
+  /**
+   * Returns a matrix object as {a,b,c,d,tx,cy}
+   * @returns {Matrix}
+   */
+  toMatrix(): Matrix {
+    const { a, b, c, d, tx, ty } = this;
+    return { a, b, c, d, tx, ty };
+  }
+
+  /**
+   * alias toMatrix
+   * @returns {Matrix}
+   */
+  toObject(): Matrix {
+    return this.toMatrix();
+  }
+
+  /**
+   * Returns a matrix array as [a,b,c,d,tx,cy]
+   * @method toArray
+   * @returns {MatrixArray}
+   */
+  toArray(): MatrixArray {
+    const { a, b, c, d, tx, ty } = this;
+    return [a, b, c, d, tx, ty];
+  }
+
+  /**
+   * Returns a matrix string as matrix(a,b,c,d,tx,cy)
+   * @method toString
+   * @return {String} a string representation of the instance.
+   **/
+  toString(): string {
+    return `matrix(${this.toArray().join(",")})`;
   }
 }
 
