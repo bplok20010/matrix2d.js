@@ -1,6 +1,6 @@
 {
   "name": "matrix2d.js",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "matrix2d",
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
@@ -16,13 +16,20 @@
   },
   "keywords": [
     "matrix2d",
+    "mat3",
+    "matrix",
+    "transform",
+    "rotate",
+    "scale",
+    "skew",
+    "zoom",
     "createjs"
   ],
   "files": [
     "dist",
     "*.md"
   ],
-  "author": "",
+  "author": "bplok20010<nobo.zhou@foxmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
