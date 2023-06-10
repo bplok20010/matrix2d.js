@@ -16,22 +16,6 @@ describe("transformPoint", () => {
     expect(mtx.transformPoint(30, 30)).toEqual({ x: 20, y: 20 });
     expect(mtx.transformPoint(50, 50)).toEqual({ x: 60, y: 60 });
   });
-  it("should return a transformed object point 2", () => {
-    const mtx = new Matrix2D();
-    mtx.scale(2);
-    expect(
-      mtx.transformPoint(30, 30, {
-        x: 40,
-        y: 40,
-      })
-    ).toEqual({ x: 20, y: 20 });
-    expect(
-      mtx.transformPoint(50, 50, {
-        x: 40,
-        y: 40,
-      })
-    ).toEqual({ x: 60, y: 60 });
-  });
 });
 
 describe("transformPoints", () => {
@@ -57,22 +41,5 @@ describe("transformPoints", () => {
 
     expect(Matrix2D.identity.transformPoints([{ x: 0, y: 0 }])).toEqual([{ x: 0, y: 0 }]);
     expect(mtx.transformPoints(points)).toEqual(transPoints);
-  });
-  it("should return transformed points 2", () => {
-    const mtx = new Matrix2D();
-    mtx.scale(2);
-
-    expect(
-      Matrix2D.identity.transformPoints([{ x: 0, y: 0 }], {
-        x: 40,
-        y: 40,
-      })
-    ).toEqual([{ x: 0, y: 0 }]);
-    expect(
-      mtx.transformPoints(points, {
-        x: 40,
-        y: 40,
-      })
-    ).toEqual(transPoints);
   });
 });

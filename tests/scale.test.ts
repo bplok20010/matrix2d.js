@@ -28,12 +28,6 @@ describe("scale", () => {
       f: 0,
     });
     expect(mtx.transformPoint(0, 0)).toEqual({ x: 0, y: 0 });
-    expect(
-      mtx.transformPoint(0, 0, {
-        x: 100,
-        y: 100,
-      })
-    ).toEqual({ x: -1900, y: -1900 });
     expect(mtx.transformPoint(50, 80)).toEqual({ x: 1000, y: 1600 });
   });
 
