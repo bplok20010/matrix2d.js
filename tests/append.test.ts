@@ -47,6 +47,10 @@ describe("append", () => {
     const mtx = new Matrix2D(m1.a, m1.b, m1.c, m1.d, m1.e, m1.f);
     mtx.append(m2.a, m2.b, m2.c, m2.d, m2.e, m2.f);
     expect(mtx).toMatchObject(m12);
+
+    const mtx1 = new Matrix2D(m2.a, m2.b, m2.c, m2.d, m2.e, m2.f);
+    mtx1.prepend(m1.a, m1.b, m1.c, m1.d, m1.e, m1.f);
+    expect(mtx1).toMatchObject(m12);
   });
 
   it("should return m1 * m2 * m3 = m123", () => {
@@ -78,6 +82,13 @@ describe("append", () => {
     mtx.append(m1.a, m1.b, m1.c, m1.d, m1.e, m1.f);
     mtx.append(m2.a, m2.b, m2.c, m2.d, m2.e, m2.f);
     mtx.append(m3.a, m3.b, m3.c, m3.d, m3.e, m3.f);
+
+    expect(mtx).toMatchObject(m123);
+
+    const mtx1 = new Matrix2D();
+    mtx1.prepend(m3.a, m3.b, m3.c, m3.d, m3.e, m3.f);
+    mtx1.prepend(m2.a, m2.b, m2.c, m2.d, m2.e, m2.f);
+    mtx1.prepend(m1.a, m1.b, m1.c, m1.d, m1.e, m1.f);
 
     expect(mtx).toMatchObject(m123);
   });
