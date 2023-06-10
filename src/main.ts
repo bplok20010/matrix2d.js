@@ -1324,7 +1324,7 @@ export class Matrix2D implements Matrix {
   }
 
   /**
-   * Returns a matrix object as {a,b,c,d,tx,cy}
+   * Returns a matrix object as {a,b,c,d,tx,ty}
    * @returns {MatrixValue}
    */
   toMatrix(out: MatrixValue = {} as any): MatrixValue {
@@ -1349,7 +1349,7 @@ export class Matrix2D implements Matrix {
   }
 
   /**
-   * Returns a matrix array as [a,b,c,d,tx,cy]
+   * Returns a matrix array as [a,b,c,d,tx,ty]
    * @method toArray
    * @returns {MatrixArray}
    */
@@ -1367,7 +1367,7 @@ export class Matrix2D implements Matrix {
   }
 
   /**
-   * Returns a matrix string as matrix(a,b,c,d,tx,cy)
+   * Returns a matrix string as matrix(a,b,c,d,tx,ty)
    * @method toString
    * @return {String} a string representation of the instance.
    **/

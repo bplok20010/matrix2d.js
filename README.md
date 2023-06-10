@@ -67,30 +67,36 @@ export declare class Matrix2D implements Matrix {
    * @readonly
    **/
   static identity: Matrix2D;
+  static equals(m1: MatrixValue, m2: MatrixValue, exact?: boolean): boolean;
   /**
    * @deprecated
    * Convert matrix array([a,b,c,d,tx,ty]) to object
    * @param {Number[]} matrix
-   * @returns {Matrix} matrix object.
+   * @returns {MatrixValue} matrix object.
    */
-  static toMatrix(matrix: MatrixArray): Matrix;
+  static toMatrix(matrix: MatrixArray): MatrixValue;
   /**
    * @static
-   * @param {Matrix} matrix
+   * @param {MatrixValue} matrix
    * @returns {Matrix2D}
    */
-  static fromMatrix(matrix: Matrix): Matrix2D;
+  static fromMatrix(matrix: MatrixValue | MatrixArray): Matrix2D;
   /**
    * alias fromMatrix
    * @static
    * @returns {Matrix2D}
    */
-  static fromObject(matrix: Matrix): Matrix2D;
+  static fromObject(matrix: MatrixValue): Matrix2D;
   /**
    * @static
    * @returns {Matrix2D}
    */
   static fromArray(matrix: MatrixArray): Matrix2D;
+  /**
+   * @static
+   * @returns {Matrix2D}
+   */
+  static toArray(matrix: MatrixValue, out?: MatrixArray): MatrixArray;
   /**
    * Parse a string formatted as matrix(a,b,c,d,tx,ty)
    * @static
@@ -98,13 +104,42 @@ export declare class Matrix2D implements Matrix {
    * @returns {Matrix2D}
    */
   static fromString(string: string): Matrix2D;
+  static getIdentityMatrixValue(): {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+    tx: number;
+    ty: number;
+  };
   /**
    * @static
-   * @param {Matrix} m1
-   * @param {Matrix} m2
-   * @returns {Matrix}
+   * @param {MatrixValue} m1
+   * @param {MatrixValue} m2
+   * @returns {MatrixValue}
    */
-  static multiply(m1: Matrix, m2: Matrix): Matrix;
+  static multiply(m1: MatrixValue, m2: MatrixValue): MatrixValue;
+  /**
+   * @static
+   * @param {MatrixValue[]} matrices
+   * @returns {MatrixValue}
+   */
+  static transform(matrices: MatrixValue[]): MatrixValue;
+  static translate(tx: number, ty?: number): MatrixValue;
+  static rotate(angle: number, cx?: number, cy?: number): Matrix;
+  static scale(sx: number, sy?: number, cx?: number, cy?: number): Matrix;
+  static shear(shearX: number, shearY?: number): MatrixValue;
+  static skew(
+    skewX: number,
+    skewY: number
+  ): {
+    a: number;
+    c: number;
+    tx: number;
+    b: number;
+    d: number;
+    ty: number;
+  };
   /**
    * Position (0, 0) in a 3x3 affine transformation matrix.
    * @property a
@@ -209,7 +244,7 @@ export declare class Matrix2D implements Matrix {
    * @param {Matrix2D} matrix
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  appendMatrix(matrix: Matrix): Matrix2D;
+  appendMatrix(matrix: Matrix | MatrixArray): Matrix2D;
   /**
    * Prepends the specified matrix to this matrix.
    * This is the equivalent of multiplying `(specified matrix) * (this matrix)`.
@@ -225,7 +260,19 @@ export declare class Matrix2D implements Matrix {
    * @param {Matrix2D} matrix
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  prependMatrix(matrix: Matrix): Matrix2D;
+  prependMatrix(matrix: Matrix | MatrixArray): Matrix2D;
+  /**
+   * alias appendMatrix
+   * @param matrix
+   * @returns
+   */
+  appendTransform(matrix: Transform): Matrix2D;
+  /**
+   * alias prependMatrix
+   * @param matrix
+   * @returns
+   */
+  prependTransform(matrix: Transform): Matrix2D;
   /**
    * Applies a clockwise rotation transformation to the matrix.
    * @method rotate
@@ -321,6 +368,100 @@ export declare class Matrix2D implements Matrix {
   translateX(x: number): Matrix2D;
   translateY(y: number): Matrix2D;
   /**
+   * Applies a clockwise rotation transformation to the matrix.
+   * @method prependRotate
+   * @param {Number} angle The angle to rotate by, in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependRotate(angle: number): Matrix2D;
+  prependRotate(angle: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a skew transformation to the matrix.
+   * @method prependSkew
+   * @param {Number} skewX The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @param {Number} skewY The amount to skew vertically in degrees.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkew(skewX: number, skewY: number): Matrix2D;
+  prependSkew(skewX: number, skewY: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a skewX transformation to the matrix.
+   * @method prependSkewX
+   * @param {Number} skewX The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkewX(skewX: number): Matrix2D;
+  prependSkewX(skewX: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a skewY transformation to the matrix.
+   * @method prependSkewY
+   * @param {Number} skewY The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkewY(skewY: number): Matrix2D;
+  prependSkewY(skewY: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a shear transformation to the matrix.
+   * @method prependShear
+   * @param {Number} shearX Shear on axis x
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShear(shearX: number, shearY: number): Matrix2D;
+  prependShear(shearX: number, shearY: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a shearX transformation to the matrix.
+   * @method prependShearX
+   * @param {Number} shearX Shear on axis x
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShearX(shearX: number): Matrix2D;
+  prependShearX(shearX: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a shearY transformation to the matrix.
+   * @method prependShearY
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShearY(shearY: number): Matrix2D;
+  prependShearY(shearY: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a scale transformation to the matrix.
+   * @method prependScale
+   * @param {Number} x The amount to scale horizontally. E.G. a value of 2 will double the size in the X direction, and 0.5 will halve it.
+   * @param {Number} y The amount to scale vertically.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScale(x: number): Matrix2D;
+  prependScale(x: number, y: number): Matrix2D;
+  prependScale(x: number, y: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a scale x transformation to the matrix.
+   * @method prependScaleX
+   * @param {Number} x The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScaleX(x: number): Matrix2D;
+  prependScaleX(x: number, cx: number, cy: number): Matrix2D;
+  /**
+   * Applies a scale y transformation to the matrix.
+   * @method prependScaleY
+   * @param {Number} y The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScaleY(y: number): Matrix2D;
+  prependScaleY(y: number, cx: number, cy: number): Matrix2D;
+  /**
+   * prepend Translates the matrix on the x and y axes.
+   * @method prependTranslate
+   * @param {Number} x
+   * @param {Number} y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependTranslate(x: number, y?: number): Matrix2D;
+  prependTranslateX(x: number): Matrix2D;
+  prependTranslateY(y: number): Matrix2D;
+  /**
    * flip the matrix on the y axes and y axes.
    * @method flip
    * @param {Boolean} flipX
@@ -349,6 +490,35 @@ export declare class Matrix2D implements Matrix {
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
   flipOrigin(): Matrix2D;
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method prependFlip
+   * @param {Boolean} flipX
+   * @param {Boolean} flipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependFlip(flipX: boolean, flipY: boolean): Matrix2D;
+  prependFlip(flipX: boolean, flipY: boolean, cx: number, cy: number): Matrix2D;
+  /**
+   * flip the matrix on the x axes.
+   * @method prependFlipX
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipX(): Matrix2D;
+  prependFlipX(cx: number, cy: number): Matrix2D;
+  /**
+   * flip the matrix on the y axes.
+   * @method prependFlipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipY(): Matrix2D;
+  prependFlipY(cx: number, cy: number): Matrix2D;
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method flipOrigin
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipOrigin(): Matrix2D;
   /**
    * Sets the properties of the matrix to those of an identity matrix (one that applies a null transformation).
    * @method identity
@@ -385,7 +555,7 @@ export declare class Matrix2D implements Matrix {
    * @method transformPoint
    * @param {Point} point
    */
-  transformPoint(point: Point): Point;
+  transformPoint(point: Point, out?: Point): Point;
   /**
    * Transforms a point according to this matrix.
    * @method transformPoint
@@ -394,22 +564,14 @@ export declare class Matrix2D implements Matrix {
    * @param {Point} origin the transform base point
    * @return {Point}
    **/
-  transformPoint(x: number, y: number): Point;
+  transformPoint(x: number, y: number, out?: Point): Point;
   /**
-   * @deprecated
-   * @param x
-   * @param y
-   * @param origin
-   */
-  transformPoint(x: number, y: number, origin: Point): Point;
-  /**
-   * @deprecated
    * @param points
-   * @param origin
    * @returns
    */
-  transformPoints(points: Point[], origin?: Point): Point[];
+  transformPoints(points: Point[]): Point[];
   /**
+   * @deprecated
    * alias transformPoint
    * Transforms a point with origin point according to this matrix.
    * @deprecated
@@ -419,7 +581,7 @@ export declare class Matrix2D implements Matrix {
    * @param {Point} origin the transform base point
    * @return {Point}
    **/
-  transformPointWithOrigin(x: number, y: number, origin: Point): Point;
+  transformPointWithOrigin(x: number, y: number): Point;
   /**
    * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
    * may not match the transform properties you used to generate the matrix, though they will produce the same visual
@@ -429,7 +591,7 @@ export declare class Matrix2D implements Matrix {
    * @param  {Boolean} flipY Whether the matrix contains horizontal flip, i.e. mirrors on y-axis
    * @return {Object} The target, or a new generic object with the transform properties applied.
    */
-  decompose(flipX?: boolean, flipY?: boolean): Transform;
+  decompose(flipX?: boolean, flipY?: boolean): IDecomposeValue;
   /**
    * Copies all properties from the specified matrix to this matrix.
    * @method copy
@@ -457,29 +619,28 @@ export declare class Matrix2D implements Matrix {
    **/
   toStringDebug(): string;
   /**
-   * Returns a matrix object as {a,b,c,d,tx,cy}
-   * @returns {Matrix}
+   * Returns a matrix object as {a,b,c,d,tx,ty}
+   * @returns {MatrixValue}
    */
-  toMatrix(): Matrix;
+  toMatrix(out?: MatrixValue): MatrixValue;
   /**
    * alias toMatrix
-   * @returns {Matrix}
+   * @returns {MatrixValue}
    */
-  toObject(): Matrix;
+  toObject(out?: MatrixValue): MatrixValue;
   /**
-   * Returns a matrix array as [a,b,c,d,tx,cy]
+   * Returns a matrix array as [a,b,c,d,tx,ty]
    * @method toArray
    * @returns {MatrixArray}
    */
-  toArray(): MatrixArray;
+  toArray(out?: MatrixArray): MatrixArray;
   /**
-   * Returns a matrix string as matrix(a,b,c,d,tx,cy)
+   * Returns a matrix string as matrix(a,b,c,d,tx,ty)
    * @method toString
    * @return {String} a string representation of the instance.
    **/
   toString(): string;
 }
-export default Matrix2D;
 
 export interface Matrix {
   a: number;
@@ -497,25 +658,22 @@ export declare type MatrixArray = [
   tx: number,
   ty: number
 ];
+export declare type Transform = MatrixArray;
 export interface Point {
   x: number;
   y: number;
 }
-export interface Transform {
+export interface IDecomposeValue {
   x: number;
   y: number;
   scaleX: number;
   scaleY: number;
   rotation: number;
 }
-interface MatrixValue {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  tx: number;
-  ty: number;
-}
+export declare type MatrixValue = Matrix;
+export declare const EPSILON = 0.000001;
+export declare function multiply(m1: MatrixValue, m2: MatrixValue): MatrixValue;
+export declare function transform(matrices: MatrixValue[]): MatrixValue;
 ```
 
 ## Thanks
