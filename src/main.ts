@@ -40,12 +40,14 @@ export interface Matrix {
 
 export type MatrixArray = [a: number, b: number, c: number, d: number, tx: number, ty: number];
 
+export type Transform = MatrixArray;
+
 export interface Point {
   x: number;
   y: number;
 }
 
-export interface Transform {
+export interface IDecomposeValue {
   x: number;
   y: number;
   scaleX: number;
@@ -65,19 +67,14 @@ function isPointObject(value: any): value is Point {
   return isObject(value) && "x" in value && "y" in value;
 }
 
-interface MatrixValue {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  tx: number; // e
-  ty: number; // f
-}
+export type MatrixValue = Matrix;
+
+export const EPSILON = 0.000001;
 
 const matrixRegex =
   /^matrix\(\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*\)$/i;
 
-export function multiply(m1: MatrixValue, m2: MatrixValue): Matrix {
+export function multiply(m1: MatrixValue, m2: MatrixValue): MatrixValue {
   return {
     a: m1.a * m2.a + m1.c * m2.b,
     b: m1.b * m2.a + m1.d * m2.b,
@@ -86,6 +83,17 @@ export function multiply(m1: MatrixValue, m2: MatrixValue): Matrix {
     tx: m1.a * m2.tx + m1.c * m2.ty + m1.tx,
     ty: m1.b * m2.tx + m1.d * m2.ty + m1.ty,
   };
+}
+
+export function transform(matrices: MatrixValue[]): MatrixValue {
+  if (matrices.length === 1) {
+    return matrices[0];
+  }
+  if (matrices.length === 2) {
+    return multiply(matrices[0], matrices[1]);
+  }
+
+  return matrices.reduce((m1, m2) => multiply(m1, m2));
 }
 
 /**
@@ -118,6 +126,7 @@ export class Matrix2D implements Matrix {
    * @readonly
    **/
   static DEG_TO_RAD: number = Math.PI / 180;
+
   /**
    * An identity matrix, representing a null transformation.
    * @property identity
@@ -127,13 +136,47 @@ export class Matrix2D implements Matrix {
    **/
   static identity: Matrix2D = new Matrix2D();
 
+  static equals(m1: MatrixValue, m2: MatrixValue, exact = true) {
+    if (exact) {
+      return (
+        m1.tx === m2.tx &&
+        m1.ty === m2.ty &&
+        m1.a === m2.a &&
+        m1.b === m2.b &&
+        m1.c === m2.c &&
+        m1.d === m2.d
+      );
+    }
+
+    let a0 = m1.a,
+      a1 = m1.b,
+      a2 = m1.c,
+      a3 = m1.d,
+      a4 = m1.tx,
+      a5 = m1.ty;
+    let b0 = m2.a,
+      b1 = m2.b,
+      b2 = m2.c,
+      b3 = m2.d,
+      b4 = m2.tx,
+      b5 = m2.ty;
+    return (
+      Math.abs(a0 - b0) <= EPSILON * Math.max(1.0, Math.abs(a0), Math.abs(b0)) &&
+      Math.abs(a1 - b1) <= EPSILON * Math.max(1.0, Math.abs(a1), Math.abs(b1)) &&
+      Math.abs(a2 - b2) <= EPSILON * Math.max(1.0, Math.abs(a2), Math.abs(b2)) &&
+      Math.abs(a3 - b3) <= EPSILON * Math.max(1.0, Math.abs(a3), Math.abs(b3)) &&
+      Math.abs(a4 - b4) <= EPSILON * Math.max(1.0, Math.abs(a4), Math.abs(b4)) &&
+      Math.abs(a5 - b5) <= EPSILON * Math.max(1.0, Math.abs(a5), Math.abs(b5))
+    );
+  }
+
   /**
    * @deprecated
    * Convert matrix array([a,b,c,d,tx,ty]) to object
    * @param {Number[]} matrix
-   * @returns {Matrix} matrix object.
+   * @returns {MatrixValue} matrix object.
    */
-  static toMatrix(matrix: MatrixArray): Matrix {
+  static toMatrix(matrix: MatrixArray): MatrixValue {
     return {
       a: matrix[0],
       b: matrix[1],
@@ -145,10 +188,13 @@ export class Matrix2D implements Matrix {
   }
   /**
    * @static
-   * @param {Matrix} matrix
+   * @param {MatrixValue} matrix
    * @returns {Matrix2D}
    */
-  static fromMatrix(matrix: Matrix): Matrix2D {
+  static fromMatrix(matrix: MatrixValue | MatrixArray): Matrix2D {
+    if (Array.isArray(matrix)) {
+      return this.fromArray(matrix);
+    }
     return new Matrix2D(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
   }
   /**
@@ -156,7 +202,7 @@ export class Matrix2D implements Matrix {
    * @static
    * @returns {Matrix2D}
    */
-  static fromObject(matrix: Matrix): Matrix2D {
+  static fromObject(matrix: MatrixValue): Matrix2D {
     return Matrix2D.fromMatrix(matrix);
   }
   /**
@@ -166,6 +212,22 @@ export class Matrix2D implements Matrix {
   static fromArray(matrix: MatrixArray): Matrix2D {
     return new Matrix2D(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
   }
+
+  /**
+   * @static
+   * @returns {Matrix2D}
+   */
+  static toArray(matrix: MatrixValue, out: MatrixArray = [1, 0, 0, 1, 0, 0]): MatrixArray {
+    out[0] = matrix.a;
+    out[1] = matrix.b;
+    out[2] = matrix.c;
+    out[3] = matrix.d;
+    out[4] = matrix.tx;
+    out[5] = matrix.ty;
+
+    return out;
+  }
+
   /**
    * Parse a string formatted as matrix(a,b,c,d,tx,ty)
    * @static
@@ -187,14 +249,110 @@ export class Matrix2D implements Matrix {
     return Matrix2D.fromMatrix(matrix);
   }
 
+  static getIdentityMatrixValue() {
+    return {
+      a: 1,
+      b: 0,
+      c: 0,
+      d: 1,
+      tx: 0,
+      ty: 0,
+    };
+  }
+
   /**
    * @static
-   * @param {Matrix} m1
-   * @param {Matrix} m2
-   * @returns {Matrix}
+   * @param {MatrixValue} m1
+   * @param {MatrixValue} m2
+   * @returns {MatrixValue}
    */
-  static multiply(m1: Matrix, m2: Matrix): Matrix {
+  static multiply(m1: MatrixValue, m2: MatrixValue): MatrixValue {
     return multiply(m1, m2);
+  }
+
+  /**
+   * @static
+   * @param {MatrixValue[]} matrices
+   * @returns {MatrixValue}
+   */
+  static transform(matrices: MatrixValue[]): MatrixValue {
+    return transform(matrices);
+  }
+
+  static translate(tx: number, ty: number = 0): MatrixValue {
+    return {
+      a: 1,
+      c: 0,
+      tx,
+      b: 0,
+      d: 1,
+      ty,
+    };
+  }
+
+  static rotate(angle: number, cx?: number, cy?: number) {
+    angle = angle * Matrix2D.DEG_TO_RAD;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const rotationMatrix = {
+      a: cos,
+      c: -sin,
+      tx: 0,
+      b: sin,
+      d: cos,
+      ty: 0,
+    };
+
+    if (isUndefined(cx) || isUndefined(cy)) {
+      return rotationMatrix;
+    }
+
+    return transform([this.translate(cx!, cy!), rotationMatrix, this.translate(-cx!, -cy!)]);
+  }
+
+  static scale(sx: number, sy?: number, cx?: number, cy?: number) {
+    if (isUndefined(sy)) sy = sx;
+
+    const scaleMatrix = {
+      a: sx,
+      c: 0,
+      tx: 0,
+      b: 0,
+      d: sy!,
+      ty: 0,
+    };
+
+    if (isUndefined(cx) || isUndefined(cy)) {
+      return scaleMatrix;
+    }
+
+    return transform([this.translate(cx!, cy!), scaleMatrix, this.translate(-cx!, -cy!)]);
+  }
+
+  static shear(shearX: number, shearY: number = 0): MatrixValue {
+    return {
+      a: 1,
+      c: shearX,
+      tx: 0,
+      b: shearY,
+      d: 1,
+      ty: 0,
+    };
+  }
+
+  static skew(skewX: number, skewY: number) {
+    skewX = skewX * Matrix2D.DEG_TO_RAD;
+    skewY = skewY * Matrix2D.DEG_TO_RAD;
+
+    return {
+      a: 1,
+      c: Math.tan(skewX),
+      tx: 0,
+      b: Math.tan(skewY),
+      d: 1,
+      ty: 0,
+    };
   }
 
   /**
@@ -352,7 +510,10 @@ export class Matrix2D implements Matrix {
    * @param {Matrix2D} matrix
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  appendMatrix(matrix: Matrix): Matrix2D {
+  appendMatrix(matrix: Matrix | MatrixArray): Matrix2D {
+    if (Array.isArray(matrix)) {
+      return this.append(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+    }
     return this.append(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
   }
   /**
@@ -370,124 +531,27 @@ export class Matrix2D implements Matrix {
    * @param {Matrix2D} matrix
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
-  prependMatrix(matrix: Matrix): Matrix2D {
+  prependMatrix(matrix: Matrix | MatrixArray): Matrix2D {
+    if (Array.isArray(matrix)) {
+      return this.prepend(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+    }
     return this.prepend(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
   }
   /**
-   * Generates matrix properties from the specified display object transform properties, and appends them to this matrix.
-   * For example, you can use this to generate a matrix representing the transformations of a display object:
-   *
-   * 	var mtx = new Matrix2D();
-   * 	mtx.appendTransform(o.x, o.y, o.scaleX, o.scaleY, o.rotation);
-   * @method appendTransform
-   * @param {Number} x
-   * @param {Number} y
-   * @param {Number} scaleX
-   * @param {Number} scaleY
-   * @param {Number} rotation
-   * @param {Number} skewX
-   * @param {Number} skewY
-   * @param {Number} regX Optional.
-   * @param {Number} regY Optional.
-   * @return {Matrix2D} This matrix. Useful for chaining method calls.
-   **/
-  appendTransform(
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    rotation: number,
-    skewX: number,
-    skewY: number,
-    regX: number = 0,
-    regY: number = 0
-  ): Matrix2D {
-    let cos = 1;
-    let sin = 0;
-
-    if (rotation % 360) {
-      const r = rotation * Matrix2D.DEG_TO_RAD;
-      cos = Math.cos(r);
-      sin = Math.sin(r);
-    }
-
-    if (skewX || skewY) {
-      // TODO: can this be combined into a single append operation?
-      skewX *= Matrix2D.DEG_TO_RAD;
-      skewY *= Matrix2D.DEG_TO_RAD;
-      this.append(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), x, y);
-      this.append(cos * scaleX, sin * scaleX, -sin * scaleY, cos * scaleY, 0, 0);
-    } else {
-      this.append(cos * scaleX, sin * scaleX, -sin * scaleY, cos * scaleY, x, y);
-    }
-
-    if (regX || regY) {
-      // append the registration offset:
-      this.tx -= regX * this.a + regY * this.c;
-      this.ty -= regX * this.b + regY * this.d;
-    }
-    return this;
+   * alias appendMatrix
+   * @param matrix
+   * @returns
+   */
+  appendTransform(matrix: Transform): Matrix2D {
+    return this.append(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
   }
   /**
-   * Generates matrix properties from the specified display object transform properties, and prepends them to this matrix.
-   * For example, you could calculate the combined transformation for a child object using:
-   *
-   * 	var o = myDisplayObject;
-   * 	var mtx = new Matrix2D();
-   * 	do  {
-   * 		// prepend each parent's transformation in turn:
-   * 		mtx.prependTransform(o.x, o.y, o.scaleX, o.scaleY, o.rotation, o.skewX, o.skewY, o.regX, o.regY);
-   * 	} while (o = o.parent);
-   *
-   * 	Note that the above example would not account for {{#crossLink "DisplayObject/transformMatrix:property"}}{{/crossLink}}
-   * 	values. See {{#crossLink "Matrix2D/prependMatrix"}}{{/crossLink}} for an example that does.
-   * @method prependTransform
-   * @param {Number} x
-   * @param {Number} y
-   * @param {Number} scaleX
-   * @param {Number} scaleY
-   * @param {Number} rotation
-   * @param {Number} skewX
-   * @param {Number} skewY
-   * @param {Number} regX Optional.
-   * @param {Number} regY Optional.
-   * @return {Matrix2D} This matrix. Useful for chaining method calls.
-   **/
-  prependTransform(
-    x: number,
-    y: number,
-    scaleX: number,
-    scaleY: number,
-    rotation: number,
-    skewX: number,
-    skewY: number,
-    regX: number = 0,
-    regY: number = 0
-  ): Matrix2D {
-    let cos = 1;
-    let sin = 0;
-
-    if (rotation % 360) {
-      const r = rotation * Matrix2D.DEG_TO_RAD;
-      cos = Math.cos(r);
-      sin = Math.sin(r);
-    }
-
-    if (regX || regY) {
-      // prepend the registration offset:
-      this.tx -= regX;
-      this.ty -= regY;
-    }
-    if (skewX || skewY) {
-      // TODO: can this be combined into a single prepend operation?
-      skewX *= Matrix2D.DEG_TO_RAD;
-      skewY *= Matrix2D.DEG_TO_RAD;
-      this.prepend(cos * scaleX, sin * scaleX, -sin * scaleY, cos * scaleY, 0, 0);
-      this.prepend(Math.cos(skewY), Math.sin(skewY), -Math.sin(skewX), Math.cos(skewX), x, y);
-    } else {
-      this.prepend(cos * scaleX, sin * scaleX, -sin * scaleY, cos * scaleY, x, y);
-    }
-    return this;
+   * alias prependMatrix
+   * @param matrix
+   * @returns
+   */
+  prependTransform(matrix: Transform): Matrix2D {
+    return this.prepend(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
   }
   /**
    * Applies a clockwise rotation transformation to the matrix.
@@ -639,13 +703,10 @@ export class Matrix2D implements Matrix {
       this.translate(cx!, cy!);
     }
 
-    // or this.append(x, x, y, y, 0, 0);
     this.a *= x;
     this.b *= x;
     this.c *= y!;
     this.d *= y!;
-    //this.tx *= x;
-    //this.ty *= y;
 
     if (hasOriginPoint) {
       this.translate(-cx!, -cy!);
@@ -692,6 +753,202 @@ export class Matrix2D implements Matrix {
   }
   translateY(y: number) {
     return this.translate(0, y);
+  }
+
+  /**
+   * Applies a clockwise rotation transformation to the matrix.
+   * @method prependRotate
+   * @param {Number} angle The angle to rotate by, in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependRotate(angle: number): Matrix2D;
+  prependRotate(angle: number, cx: number, cy: number): Matrix2D;
+  prependRotate(angle: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+    angle = angle * Matrix2D.DEG_TO_RAD;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    this.prepend(cos, sin, -sin, cos, 0, 0);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(cx!, cy!);
+    }
+    return this;
+  }
+
+  /**
+   * Applies a skew transformation to the matrix.
+   * @method prependSkew
+   * @param {Number} skewX The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @param {Number} skewY The amount to skew vertically in degrees.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkew(skewX: number, skewY: number): Matrix2D;
+  prependSkew(skewX: number, skewY: number, cx: number, cy: number): Matrix2D;
+  prependSkew(skewX: number, skewY: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    skewX = skewX * Matrix2D.DEG_TO_RAD;
+    skewY = skewY * Matrix2D.DEG_TO_RAD;
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    this.prepend(1, Math.tan(skewY), Math.tan(skewX), 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    return this;
+  }
+
+  /**
+   * Applies a skewX transformation to the matrix.
+   * @method prependSkewX
+   * @param {Number} skewX The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkewX(skewX: number): Matrix2D;
+  prependSkewX(skewX: number, cx: number, cy: number): Matrix2D;
+  prependSkewX(skewX: number, cx?: number, cy?: number): Matrix2D {
+    return this.prependSkew(skewX, 0, cx!, cy!);
+  }
+  /**
+   * Applies a skewY transformation to the matrix.
+   * @method prependSkewY
+   * @param {Number} skewY The amount to skew horizontally in degrees. To use a value in radians, multiply it by `180/Math.PI`.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependSkewY(skewY: number): Matrix2D;
+  prependSkewY(skewY: number, cx: number, cy: number): Matrix2D;
+  prependSkewY(skewY: number, cx?: number, cy?: number) {
+    return this.prependSkew(0, skewY, cx!, cy!);
+  }
+
+  /**
+   * Applies a shear transformation to the matrix.
+   * @method prependShear
+   * @param {Number} shearX Shear on axis x
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShear(shearX: number, shearY: number): Matrix2D;
+  prependShear(shearX: number, shearY: number, cx: number, cy: number): Matrix2D;
+  prependShear(shearX: number, shearY: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    this.prepend(1, shearY, shearX, 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(cx!, cy!);
+    }
+
+    return this;
+  }
+
+  /**
+   * Applies a shearX transformation to the matrix.
+   * @method prependShearX
+   * @param {Number} shearX Shear on axis x
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShearX(shearX: number): Matrix2D;
+  prependShearX(shearX: number, cx: number, cy: number): Matrix2D;
+  prependShearX(shearX: number, cx?: number, cy?: number): Matrix2D {
+    return this.prependShear(shearX, 0, cx!, cy!);
+  }
+  /**
+   * Applies a shearY transformation to the matrix.
+   * @method prependShearY
+   * @param {Number} shearY Shear on axis y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependShearY(shearY: number): Matrix2D;
+  prependShearY(shearY: number, cx: number, cy: number): Matrix2D;
+  prependShearY(shearY: number, cx?: number, cy?: number): Matrix2D {
+    return this.prependShear(0, shearY, cx!, cy!);
+  }
+
+  /**
+   * Applies a scale transformation to the matrix.
+   * @method prependScale
+   * @param {Number} x The amount to scale horizontally. E.G. a value of 2 will double the size in the X direction, and 0.5 will halve it.
+   * @param {Number} y The amount to scale vertically.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScale(x: number): Matrix2D;
+  prependScale(x: number, y: number): Matrix2D;
+  prependScale(x: number, y: number, cx: number, cy: number): Matrix2D;
+  prependScale(x: number, y?: number, cx?: number, cy?: number): Matrix2D {
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (isUndefined(y)) {
+      y = x;
+    }
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    this.prepend(x, 0, 0, y!, 0, 0);
+
+    if (hasOriginPoint) {
+      this.translate(cx!, cy!);
+    }
+
+    return this;
+  }
+  /**
+   * Applies a scale x transformation to the matrix.
+   * @method prependScaleX
+   * @param {Number} x The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScaleX(x: number): Matrix2D;
+  prependScaleX(x: number, cx: number, cy: number): Matrix2D;
+  prependScaleX(x: number, cx?: number, cy?: number) {
+    return this.prependScale(x, 1, cx!, cy!);
+  }
+  /**
+   * Applies a scale y transformation to the matrix.
+   * @method prependScaleY
+   * @param {Number} y The amount to scale horizontally.
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependScaleY(y: number): Matrix2D;
+  prependScaleY(y: number, cx: number, cy: number): Matrix2D;
+  prependScaleY(y: number, cx?: number, cy?: number) {
+    return this.prependScale(1, y, cx!, cy!);
+  }
+
+  /**
+   * prepend Translates the matrix on the x and y axes.
+   * @method prependTranslate
+   * @param {Number} x
+   * @param {Number} y
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependTranslate(x: number, y: number = 0): Matrix2D {
+    this.tx += x;
+    this.ty += y;
+    return this;
+  }
+  prependTranslateX(x: number) {
+    return this.prependTranslate(x);
+  }
+  prependTranslateY(y: number) {
+    return this.prependTranslate(0, y);
   }
 
   /**
@@ -751,6 +1008,64 @@ export class Matrix2D implements Matrix {
   flipOrigin(): Matrix2D {
     return this.append(-1, 0, 0, -1, 0, 0);
   }
+
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method prependFlip
+   * @param {Boolean} flipX
+   * @param {Boolean} flipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   */
+  prependFlip(flipX: boolean, flipY: boolean): Matrix2D;
+  prependFlip(flipX: boolean, flipY: boolean, cx: number, cy: number): Matrix2D;
+  prependFlip(flipX: boolean, flipY: boolean, cx?: number, cy?: number): Matrix2D {
+    if (!flipX && !flipY) {
+      return this;
+    }
+
+    const hasOriginPoint = !isUndefined(cx) && !isUndefined(cy);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(-cx!, -cy!);
+    }
+
+    this.prepend(flipY ? -1 : 1, 0, 0, flipX ? -1 : 1, 0, 0);
+
+    if (hasOriginPoint) {
+      this.prependTranslate(cx!, cy!);
+    }
+
+    return this;
+  }
+  /**
+   * flip the matrix on the x axes.
+   * @method prependFlipX
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipX(): Matrix2D;
+  prependFlipX(cx: number, cy: number): Matrix2D;
+  prependFlipX(cx?: number, cy?: number): Matrix2D {
+    return this.prependFlip(true, false, cx!, cy!);
+  }
+  /**
+   * flip the matrix on the y axes.
+   * @method prependFlipY
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipY(): Matrix2D;
+  prependFlipY(cx: number, cy: number): Matrix2D;
+  prependFlipY(cx?: number, cy?: number): Matrix2D {
+    return this.prependFlip(false, true, cx!, cy!);
+  }
+  /**
+   * flip the matrix on the y axes and y axes.
+   * @method flipOrigin
+   * @return {Matrix2D} This matrix. Useful for chaining method calls.
+   **/
+  prependFlipOrigin(): Matrix2D {
+    return this.prepend(-1, 0, 0, -1, 0, 0);
+  }
+
   /**
    * Sets the properties of the matrix to those of an identity matrix (one that applies a null transformation).
    * @method identity
@@ -823,7 +1138,7 @@ export class Matrix2D implements Matrix {
    * @method transformPoint
    * @param {Point} point
    */
-  transformPoint(point: Point): Point;
+  transformPoint(point: Point, out?: Point): Point;
   /**
    * Transforms a point according to this matrix.
    * @method transformPoint
@@ -832,48 +1147,44 @@ export class Matrix2D implements Matrix {
    * @param {Point} origin the transform base point
    * @return {Point}
    **/
-  transformPoint(x: number, y: number): Point;
-  /**
-   * @deprecated
-   * @param x
-   * @param y
-   * @param origin
-   */
-  transformPoint(x: number, y: number, origin: Point): Point;
-  transformPoint(x: number | Point, y?: number, origin?: Point): Point {
-    if (isPointObject(x)) {
+  transformPoint(x: number, y: number, out?: Point): Point;
+  transformPoint(x: number | Point, y?: any, out?: Point): Point {
+    if (typeof x !== "number") {
       y = x.y;
       x = x.x;
+      out = y;
     }
 
-    const hasOriginPoint = !isUndefined(origin);
+    // const hasOriginPoint = !isUndefined(origin);
 
-    if (hasOriginPoint) {
-      x = x - origin!.x;
-      y = y! - origin!.y;
-    }
+    // if (hasOriginPoint) {
+    //   x = x - origin!.x;
+    //   y = y! - origin!.y;
+    // }
 
-    const pt = {} as Point;
+    const pt = out || ({} as Point);
     pt.x = x * this.a + y! * this.c + this.tx;
     pt.y = x * this.b + y! * this.d + this.ty;
 
-    if (hasOriginPoint) {
-      pt.x += origin!.x;
-      pt.y += origin!.y;
-    }
+    // if (hasOriginPoint) {
+    //   pt.x += origin!.x;
+    //   pt.y += origin!.y;
+    // }
 
     return pt as Point;
   }
   /**
-   * @deprecated
    * @param points
-   * @param origin
    * @returns
    */
-  transformPoints(points: Point[], origin?: Point) {
-    return points.map((point) => this.transformPoint(point.x, point.y, origin as any));
+  transformPoints(points: Point[]) {
+    if (arguments.length > 1) {
+      console.warn("[Matrix2D] transformPoints(points, origin) is deprecated!");
+    }
+    return points.map((point) => this.transformPoint(point.x, point.y));
   }
   /**
+   * @deprecated
    * alias transformPoint
    * Transforms a point with origin point according to this matrix.
    * @deprecated
@@ -883,8 +1194,9 @@ export class Matrix2D implements Matrix {
    * @param {Point} origin the transform base point
    * @return {Point}
    **/
-  transformPointWithOrigin(x: number, y: number, origin: Point): Point {
-    return this.transformPoint(x, y, origin);
+  transformPointWithOrigin(x: number, y: number): Point {
+    console.warn("[Matrix2D] transformPointWithOrigin is deprecated!");
+    return this.transformPoint(x, y);
   }
   /**
    * Decomposes the matrix into transform properties (x, y, scaleX, scaleY, and rotation). Note that these values
@@ -895,7 +1207,7 @@ export class Matrix2D implements Matrix {
    * @param  {Boolean} flipY Whether the matrix contains horizontal flip, i.e. mirrors on y-axis
    * @return {Object} The target, or a new generic object with the transform properties applied.
    */
-  decompose(flipX: boolean = false, flipY: boolean = false): Transform {
+  decompose(flipX: boolean = false, flipY: boolean = false): IDecomposeValue {
     // Remove flip from the matrix first - flip could be incorrectly interpreted as
     // rotations (e.g. flipX + flipY = rotate by 180 degrees).
     // Note flipX is a vertical flip, and flipY is a horizontal flip.
@@ -953,6 +1265,7 @@ export class Matrix2D implements Matrix {
       scaleY,
     };
   }
+
   /**
    * Copies all properties from the specified matrix to this matrix.
    * @method copy
@@ -1012,19 +1325,27 @@ export class Matrix2D implements Matrix {
 
   /**
    * Returns a matrix object as {a,b,c,d,tx,cy}
-   * @returns {Matrix}
+   * @returns {MatrixValue}
    */
-  toMatrix(): Matrix {
+  toMatrix(out: MatrixValue = {} as any): MatrixValue {
     const { a, b, c, d, tx, ty } = this;
-    return { a, b, c, d, tx, ty };
+
+    out.a = a;
+    out.b = b;
+    out.c = c;
+    out.d = d;
+    out.tx = tx;
+    out.ty = ty;
+
+    return out;
   }
 
   /**
    * alias toMatrix
-   * @returns {Matrix}
+   * @returns {MatrixValue}
    */
-  toObject(): Matrix {
-    return this.toMatrix();
+  toObject(out?: MatrixValue): MatrixValue {
+    return this.toMatrix(out);
   }
 
   /**
@@ -1032,9 +1353,17 @@ export class Matrix2D implements Matrix {
    * @method toArray
    * @returns {MatrixArray}
    */
-  toArray(): MatrixArray {
+  toArray(out: MatrixArray = [1, 0, 0, 1, 0, 0]): MatrixArray {
     const { a, b, c, d, tx, ty } = this;
-    return [a, b, c, d, tx, ty];
+
+    out[0] = a;
+    out[1] = b;
+    out[2] = c;
+    out[3] = d;
+    out[4] = tx;
+    out[5] = ty;
+
+    return out;
   }
 
   /**
