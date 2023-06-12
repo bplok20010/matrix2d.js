@@ -15,6 +15,7 @@ describe("transformPoint", () => {
     expect(Matrix2D.identity.transformPoint(0, 0)).toEqual({ x: 0, y: 0 });
     expect(mtx.transformPoint(30, 30)).toEqual({ x: 20, y: 20 });
     expect(mtx.transformPoint(50, 50)).toEqual({ x: 60, y: 60 });
+    expect(mtx.transformPoint({ x: 50, y: 50 })).toEqual({ x: 60, y: 60 });
   });
 });
 

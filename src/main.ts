@@ -1150,9 +1150,9 @@ export class Matrix2D implements Matrix {
   transformPoint(x: number, y: number, out?: Point): Point;
   transformPoint(x: number | Point, y?: any, out?: Point): Point {
     if (typeof x !== "number") {
+      out = y;
       y = x.y;
       x = x.x;
-      out = y;
     }
 
     // const hasOriginPoint = !isUndefined(origin);
