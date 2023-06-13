@@ -29,7 +29,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-export interface Matrix {
+interface Matrix {
   a: number;
   b: number;
   c: number;
@@ -40,7 +40,7 @@ export interface Matrix {
 
 export type MatrixArray = [a: number, b: number, c: number, d: number, tx: number, ty: number];
 
-export type Transform = MatrixArray;
+// export type Transform = MatrixArray;
 
 export interface Point {
   x: number;
@@ -59,13 +59,13 @@ function isUndefined(value: any) {
   return typeof value === "undefined";
 }
 
-function isObject(value: any) {
-  return value != null && typeof value === "object";
-}
+// function isObject(value: any) {
+//   return value != null && typeof value === "object";
+// }
 
-function isPointObject(value: any): value is Point {
-  return isObject(value) && "x" in value && "y" in value;
-}
+// function isPointObject(value: any): value is Point {
+//   return isObject(value) && "x" in value && "y" in value;
+// }
 
 export type MatrixValue = Matrix;
 
@@ -127,6 +127,8 @@ export class Matrix2D implements Matrix {
    **/
   static DEG_TO_RAD: number = Math.PI / 180;
 
+  static RAD_TO_DEG: number = 180 / Math.PI;
+
   /**
    * An identity matrix, representing a null transformation.
    * @property identity
@@ -171,7 +173,6 @@ export class Matrix2D implements Matrix {
   }
 
   /**
-   * @deprecated
    * Convert matrix array([a,b,c,d,tx,ty]) to object
    * @param {Number[]} matrix
    * @returns {MatrixValue} matrix object.
@@ -191,10 +192,11 @@ export class Matrix2D implements Matrix {
    * @param {MatrixValue} matrix
    * @returns {Matrix2D}
    */
-  static fromMatrix(matrix: MatrixValue | MatrixArray): Matrix2D {
-    if (Array.isArray(matrix)) {
-      return this.fromArray(matrix);
-    }
+  static fromMatrix(matrix: MatrixValue): Matrix2D {
+    // | MatrixArray
+    // if (Array.isArray(matrix)) {
+    //   return this.fromArray(matrix);
+    // }
     return new Matrix2D(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
   }
   /**
@@ -260,6 +262,10 @@ export class Matrix2D implements Matrix {
     };
   }
 
+  static getIdentityMatrix() {
+    return new Matrix2D();
+  }
+
   /**
    * @static
    * @param {MatrixValue} m1
@@ -270,24 +276,23 @@ export class Matrix2D implements Matrix {
     return multiply(m1, m2);
   }
 
-  /**
-   * @static
-   * @param {MatrixValue[]} matrices
-   * @returns {MatrixValue}
-   */
-  static transform(matrices: MatrixValue[]): MatrixValue {
-    return transform(matrices);
+  // static transform(matrices: MatrixValue[]): MatrixValue {
+  //   return transform(matrices);
+  // }
+
+  static concat(matrices: MatrixValue[]) {
+    return this.fromMatrix(transform(matrices));
   }
 
-  static translate(tx: number, ty: number = 0): MatrixValue {
-    return {
+  static translate(tx: number, ty: number = 0) {
+    return this.fromMatrix({
       a: 1,
       c: 0,
       tx,
       b: 0,
       d: 1,
       ty,
-    };
+    });
   }
 
   static rotate(angle: number, cx?: number, cy?: number) {
@@ -305,10 +310,12 @@ export class Matrix2D implements Matrix {
     };
 
     if (isUndefined(cx) || isUndefined(cy)) {
-      return rotationMatrix;
+      return this.fromMatrix(rotationMatrix);
     }
 
-    return transform([this.translate(cx!, cy!), rotationMatrix, this.translate(-cx!, -cy!)]);
+    return this.fromMatrix(
+      transform([this.translate(cx!, cy!), rotationMatrix, this.translate(-cx!, -cy!)])
+    );
   }
 
   static scale(sx: number, sy?: number, cx?: number, cy?: number) {
@@ -324,35 +331,37 @@ export class Matrix2D implements Matrix {
     };
 
     if (isUndefined(cx) || isUndefined(cy)) {
-      return scaleMatrix;
+      return this.fromMatrix(scaleMatrix);
     }
 
-    return transform([this.translate(cx!, cy!), scaleMatrix, this.translate(-cx!, -cy!)]);
+    return this.fromMatrix(
+      transform([this.translate(cx!, cy!), scaleMatrix, this.translate(-cx!, -cy!)])
+    );
   }
 
-  static shear(shearX: number, shearY: number = 0): MatrixValue {
-    return {
+  static shear(shearX: number, shearY: number = 0) {
+    return this.fromMatrix({
       a: 1,
       c: shearX,
       tx: 0,
       b: shearY,
       d: 1,
       ty: 0,
-    };
+    });
   }
 
   static skew(skewX: number, skewY: number) {
     skewX = skewX * Matrix2D.DEG_TO_RAD;
     skewY = skewY * Matrix2D.DEG_TO_RAD;
 
-    return {
+    return this.fromMatrix({
       a: 1,
       c: Math.tan(skewX),
       tx: 0,
       b: Math.tan(skewY),
       d: 1,
       ty: 0,
-    };
+    });
   }
 
   /**
@@ -542,7 +551,7 @@ export class Matrix2D implements Matrix {
    * @param matrix
    * @returns
    */
-  appendTransform(matrix: Transform): Matrix2D {
+  appendTransform(matrix: MatrixArray): Matrix2D {
     return this.append(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
   }
   /**
@@ -550,7 +559,7 @@ export class Matrix2D implements Matrix {
    * @param matrix
    * @returns
    */
-  prependTransform(matrix: Transform): Matrix2D {
+  prependTransform(matrix: MatrixArray): Matrix2D {
     return this.prepend(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
   }
   /**
