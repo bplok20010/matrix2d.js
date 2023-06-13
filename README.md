@@ -49,7 +49,7 @@ mtx.toString(); // matrix(0.8660254037844387,0.49999999999999994,-0.499999999999
  * @param {Number} [ty=0] Specifies the ty property for the new matrix.
  * @constructor
  **/
-export declare class Matrix2D implements Matrix {
+export declare class Matrix2D {
   /**
    * Multiplier for converting degrees to radians. Used internally by Matrix2D.
    * @property DEG_TO_RAD
@@ -59,6 +59,7 @@ export declare class Matrix2D implements Matrix {
    * @readonly
    **/
   static DEG_TO_RAD: number;
+  static RAD_TO_DEG: number;
   /**
    * An identity matrix, representing a null transformation.
    * @property identity
@@ -112,6 +113,7 @@ export declare class Matrix2D implements Matrix {
     tx: number;
     ty: number;
   };
+  static getIdentityMatrix(): Matrix2D;
   /**
    * @static
    * @param {MatrixValue} m1
@@ -124,22 +126,12 @@ export declare class Matrix2D implements Matrix {
    * @param {MatrixValue[]} matrices
    * @returns {MatrixValue}
    */
-  static transform(matrices: MatrixValue[]): MatrixValue;
-  static translate(tx: number, ty?: number): MatrixValue;
-  static rotate(angle: number, cx?: number, cy?: number): Matrix;
-  static scale(sx: number, sy?: number, cx?: number, cy?: number): Matrix;
-  static shear(shearX: number, shearY?: number): MatrixValue;
-  static skew(
-    skewX: number,
-    skewY: number
-  ): {
-    a: number;
-    c: number;
-    tx: number;
-    b: number;
-    d: number;
-    ty: number;
-  };
+  static concat(matrices: MatrixValue[]): Matrix2D;
+  static translate(tx: number, ty?: number): Matrix2D;
+  static rotate(angle: number, cx?: number, cy?: number): Matrix2D;
+  static scale(sx: number, sy?: number, cx?: number, cy?: number): Matrix2D;
+  static shear(shearX: number, shearY?: number): Matrix2D;
+  static skew(skewX: number, skewY: number): Matrix2D;
   /**
    * Position (0, 0) in a 3x3 affine transformation matrix.
    * @property a
@@ -642,7 +634,7 @@ export declare class Matrix2D implements Matrix {
   toString(): string;
 }
 
-export interface Matrix {
+export interface MatrixValue {
   a: number;
   b: number;
   c: number;
@@ -658,7 +650,6 @@ export declare type MatrixArray = [
   tx: number,
   ty: number
 ];
-export declare type Transform = MatrixArray;
 export interface Point {
   x: number;
   y: number;
@@ -670,7 +661,7 @@ export interface IDecomposeValue {
   scaleY: number;
   rotation: number;
 }
-export declare type MatrixValue = Matrix;
+
 export declare const EPSILON = 0.000001;
 export declare function multiply(m1: MatrixValue, m2: MatrixValue): MatrixValue;
 export declare function transform(matrices: MatrixValue[]): MatrixValue;
