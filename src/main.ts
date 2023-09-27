@@ -38,9 +38,7 @@ interface Matrix {
   ty: number;
 }
 
-export type MatrixArray =
-  | [a: number, b: number, c: number, d: number, tx: number, ty: number]
-  | Float32Array;
+export type MatrixArray = [a: number, b: number, c: number, d: number, tx: number, ty: number];
 
 // export type Transform = MatrixArray;
 

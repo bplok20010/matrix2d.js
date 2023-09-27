@@ -627,6 +627,16 @@ export declare class Matrix2D {
    */
   toArray(out?: MatrixArray): MatrixArray;
   /**
+   * Returns a matrix array as [a,b,c,d,tx,ty]
+   * @method toArray
+   * @returns {Float32Array}
+   */
+  toFloat32Array(out?: Float32Array): Float32Array;
+  /**
+   * convert matrix values to float32
+   */
+  convertToFloat32(): this;
+  /**
    * Returns a matrix string as matrix(a,b,c,d,tx,ty)
    * @method toString
    * @return {String} a string representation of the instance.
