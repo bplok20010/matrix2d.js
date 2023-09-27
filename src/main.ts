@@ -38,7 +38,9 @@ interface Matrix {
   ty: number;
 }
 
-export type MatrixArray = [a: number, b: number, c: number, d: number, tx: number, ty: number];
+export type MatrixArray =
+  | [a: number, b: number, c: number, d: number, tx: number, ty: number]
+  | Float32Array;
 
 // export type Transform = MatrixArray;
 
@@ -70,6 +72,10 @@ function isUndefined(value: any) {
 export type MatrixValue = Matrix;
 
 export const EPSILON = 0.000001;
+
+export function isMatrixArray(arr: any): arr is MatrixArray {
+  return Array.isArray(arr) || arr instanceof Float32Array;
+}
 
 const matrixRegex =
   /^matrix\(\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*,\s*([0-9_+-.e]+)\s*\)$/i;
@@ -520,7 +526,7 @@ export class Matrix2D implements Matrix {
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
   appendMatrix(matrix: Matrix | MatrixArray): Matrix2D {
-    if (Array.isArray(matrix)) {
+    if (isMatrixArray(matrix)) {
       return this.append(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
     }
     return this.append(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
@@ -541,7 +547,7 @@ export class Matrix2D implements Matrix {
    * @return {Matrix2D} This matrix. Useful for chaining method calls.
    **/
   prependMatrix(matrix: Matrix | MatrixArray): Matrix2D {
-    if (Array.isArray(matrix)) {
+    if (isMatrixArray(matrix)) {
       return this.prepend(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
     }
     return this.prepend(matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty);
@@ -1132,15 +1138,15 @@ export class Matrix2D implements Matrix {
    * @param {Matrix2D} matrix The matrix to compare.
    * @return {Boolean}
    **/
-  equals(matrix: Matrix): boolean {
-    return (
-      this.tx === matrix.tx &&
-      this.ty === matrix.ty &&
-      this.a === matrix.a &&
-      this.b === matrix.b &&
-      this.c === matrix.c &&
-      this.d === matrix.d
-    );
+  equals(matrix: Matrix, exact = true): boolean {
+    return exact
+      ? this.tx === matrix.tx &&
+          this.ty === matrix.ty &&
+          this.a === matrix.a &&
+          this.b === matrix.b &&
+          this.c === matrix.c &&
+          this.d === matrix.d
+      : Matrix2D.equals(this, matrix, false);
   }
   /**
    * Transforms a point according to this matrix.
@@ -1373,6 +1379,48 @@ export class Matrix2D implements Matrix {
     out[5] = ty;
 
     return out;
+  }
+
+  /**
+   * Returns a matrix array as [a,b,c,d,tx,ty]
+   * @method toArray
+   * @returns {Float32Array}
+   */
+  toFloat32Array(out = new Float32Array(6)): Float32Array {
+    const { a, b, c, d, tx, ty } = this;
+
+    out[0] = a;
+    out[1] = b;
+    out[2] = c;
+    out[3] = d;
+    out[4] = tx;
+    out[5] = ty;
+
+    return out;
+  }
+
+  /**
+   * convert matrix values to float32
+   */
+  convertToFloat32() {
+    const out = new Float32Array(6);
+    const { a, b, c, d, tx, ty } = this;
+
+    out[0] = a;
+    out[1] = b;
+    out[2] = c;
+    out[3] = d;
+    out[4] = tx;
+    out[5] = ty;
+
+    this.a = out[0];
+    this.b = out[1];
+    this.c = out[2];
+    this.d = out[3];
+    this.tx = out[4];
+    this.ty = out[5];
+
+    return this;
   }
 
   /**
