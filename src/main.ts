@@ -917,7 +917,7 @@ export class Matrix2D implements Matrix {
     this.prepend(x, 0, 0, y!, 0, 0);
 
     if (hasOriginPoint) {
-      this.translate(cx!, cy!);
+      this.prependTranslate(cx!, cy!);
     }
 
     return this;
@@ -1139,11 +1139,11 @@ export class Matrix2D implements Matrix {
   equals(matrix: Matrix, exact = true): boolean {
     return exact
       ? this.tx === matrix.tx &&
-          this.ty === matrix.ty &&
-          this.a === matrix.a &&
-          this.b === matrix.b &&
-          this.c === matrix.c &&
-          this.d === matrix.d
+      this.ty === matrix.ty &&
+      this.a === matrix.a &&
+      this.b === matrix.b &&
+      this.c === matrix.c &&
+      this.d === matrix.d
       : Matrix2D.equals(this, matrix, false);
   }
   /**

@@ -81,4 +81,10 @@ describe("prepend", () => {
 
     expect(mtx).toMatchObject(m123);
   });
+
+  it("prependScale(2, 2, 100, 100)", () => {
+    const mtx = new Matrix2D();
+    mtx.prependScale(2, 2, 100, 100);
+    expect(mtx.toArray()).toMatchObject([2, 0, 0, 2, -100, -100]);
+  });
 });
