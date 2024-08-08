@@ -1,6 +1,6 @@
 {
   "name": "matrix2d.js",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "matrix2d",
   "main": "dist/cjs/main.js",
   "module": "dist/esm/main.js",
